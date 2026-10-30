@@ -1,0 +1,32 @@
+# Goes in k8s-server/argo-cd-talos-app/auto-monitor-k8s.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: auto-monitor-k8s
+  namespace: argocd
+spec:
+  destination:
+    namespace: auto-monitor-k8s
+    name: talos
+  project: talos
+  sources:
+  - ref: values
+    repoURL: https://github.com/96daysleft/k8s-server.git
+    targetRevision: HEAD
+  - chart: auto-monitor-k8s
+    repoURL: oci://ghcr.io/96daysleft/charts/auto-monitor-k8s
+    targetRevision: "~0.1.0"
+    helm:
+      valueFiles:
+      - $values/auto-monitor-k8s/values.yaml
+  - repoURL: https://github.com/96daysleft/k8s-server.git
+    targetRevision: HEAD
+    path: auto-monitor-k8s
+    directory:
+      include: "external-secret.yaml"
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true

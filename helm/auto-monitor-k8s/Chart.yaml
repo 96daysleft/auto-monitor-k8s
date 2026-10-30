@@ -1,0 +1,7 @@
+apiVersion: v2
+name: auto-monitor-k8s
+description: Adds the external URLs of Ingresses / HTTPRoutes / Traefik IngressRoutes to Uptime Kuma and other monitoring
+type: application
+# version/appVersion are set from the git tag by the release workflow
+version: 0.1.0
+appVersion: "0.1.0"

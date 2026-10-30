@@ -1,0 +1,73 @@
+{{- if .Values.rbac.create }}
+{{- $sources := .Values.discovery.sources }}
+# Read-only access to the routing resources that are scanned for hostnames.
+# Cluster-wide even when discovery.namespaces is set, to keep the chart simple.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "auto-monitor-k8s.fullname" . }}
+  labels:
+    {{- include "auto-monitor-k8s.labels" . | nindent 4 }}
+rules:
+  {{- if $sources.ingress }}
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["ingresses"]
+    verbs: ["get", "list"]
+  {{- end }}
+  {{- if $sources.httpRoute }}
+  - apiGroups: ["gateway.networking.k8s.io"]
+    resources: ["httproutes"]
+    verbs: ["get", "list"]
+  {{- end }}
+  {{- if $sources.traefikIngressRoute }}
+  - apiGroups: ["traefik.io"]
+    resources: ["ingressroutes"]
+    verbs: ["get", "list"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "auto-monitor-k8s.fullname" . }}
+  labels:
+    {{- include "auto-monitor-k8s.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "auto-monitor-k8s.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "auto-monitor-k8s.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- if .Values.backends.blackboxProbe.enabled }}
+---
+# Manage Probe objects, only in the namespace they are written to
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "auto-monitor-k8s.fullname" . }}-probes
+  namespace: {{ include "auto-monitor-k8s.probeNamespace" . }}
+  labels:
+    {{- include "auto-monitor-k8s.labels" . | nindent 4 }}
+rules:
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["probes"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "auto-monitor-k8s.fullname" . }}-probes
+  namespace: {{ include "auto-monitor-k8s.probeNamespace" . }}
+  labels:
+    {{- include "auto-monitor-k8s.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "auto-monitor-k8s.fullname" . }}-probes
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "auto-monitor-k8s.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}
+{{- end }}

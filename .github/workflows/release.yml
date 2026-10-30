@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+# Permissions on each calling job must cover what the reusable workflow's
+# job requests, or the run fails to start.
+jobs:
+  python-package:
+    uses: 96daysleft/github-workflows/.github/workflows/python-build-artifacts.yml@release
+    permissions:
+      contents: write      # create the GitHub release
+      packages: write
+
+  image:
+    uses: 96daysleft/github-workflows/.github/workflows/docker-build-push.yml@release
+    permissions:
+      contents: write
+      packages: write      # push to ghcr.io
+      attestations: write  # build provenance attestations
+      id-token: write      # OIDC token for attestation signing
+    with:
+      build-args: |
+        VERSION=${{ github.ref_name }}
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
+
+  chart:
+    needs: image           # the chart's default image tag must exist first
+    uses: 96daysleft/github-workflows/.github/workflows/helm-publish.yml@release
+    permissions:
+      packages: write
+    with:
+      runner: ubuntu-latest
+      chart-path: helm/auto-monitor-k8s
+      chart-name: auto-monitor-k8s
+    secrets:
+      registry-password: ${{ secrets.GITHUB_TOKEN }}

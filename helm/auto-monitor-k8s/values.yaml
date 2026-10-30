@@ -1,0 +1,147 @@
+image:
+  repository: ghcr.io/96daysleft/auto-monitor-k8s
+  # Defaults to the chart's appVersion
+  tag: ""
+  pullPolicy: IfNotPresent
+
+# --- Application config ------------------------------------------------------
+# Everything below (down to `backends`) is rendered into config.yaml and
+# stored in a Secret. Any string may reference env vars as ${VAR} or
+# ${VAR:-default}; combine with extraEnv / extraEnvFrom to keep the Uptime
+# Kuma password out of values entirely.
+
+logLevel: INFO            # DEBUG, INFO, WARNING, ERROR
+logFormat: console        # console or json
+healthPort: 8080          # liveness endpoint (/healthz); 0 disables it and the probe
+syncIntervalSeconds: 60   # how often the cluster is rescanned and backends reconciled
+dryRun: false             # log what would change, touch nothing (good for a first install)
+
+# Marks which monitors this install owns, so several clusters can share one
+# Uptime Kuma. Lowercase letters, digits and dashes. Don't change it after
+# the first sync: existing monitors would be orphaned and recreated.
+ownerId: default
+
+# Per-resource annotations are <annotationPrefix>/<key>:
+#   enabled                "true" / "false" (opt in / opt out, see discovery.mode)
+#   name                   monitor name (default: the hostname)
+#   path                   path to check (default: "/", or the first routed path)
+#   url                    full URL to check instead of the discovered one
+#   hosts                  comma list: only monitor these hosts of the resource
+#   interval               check interval in seconds
+#   accepted-status-codes  comma list, e.g. "200-299,401"
+#   ignore-tls             "true" to skip certificate validation
+#   backends               comma list of: uptime-kuma, blackbox-probe
+annotationPrefix: auto-monitor.96daysleft.com
+
+discovery:
+  # optOut: everything is monitored unless annotated enabled: "false"
+  # optIn:  only resources annotated enabled: "true" are monitored
+  mode: optOut
+  namespaces: []            # empty = all namespaces
+  excludeNamespaces: []
+  ingressClasses: []        # Ingress only; empty = any class
+  # Regexes, matched against the whole hostname
+  includeHosts: []          # empty = every host
+  #  - '.*\.example\.com'
+  excludeHosts: []
+  #  - 'internal\..*'
+  # Scheme for hosts without TLS (hosts in spec.tls or with Traefik's
+  # router.tls annotation are always https)
+  defaultScheme: http
+  httpRouteScheme: https    # Gateway API routes don't say whether the listener is TLS
+  sources:
+    ingress: true
+    httpRoute: false              # needs the Gateway API CRDs
+    traefikIngressRoute: false    # needs the Traefik CRDs
+
+backends:
+  uptimeKuma:
+    enabled: true
+    # In-cluster service URL of Uptime Kuma (socket.io, same as the web UI)
+    url: http://uptime-kuma-uptime-kuma.uptime-kuma.svc.cluster.local
+    # A dedicated Uptime Kuma user is not possible (single-user app): use the
+    # admin login, without 2FA. Leave username empty if auth is disabled.
+    username: ${UPTIME_KUMA_USERNAME}
+    password: ${UPTIME_KUMA_PASSWORD}
+    prune: true                   # delete monitors whose resource is gone; false = pause them
+    tag:
+      enabled: true
+      name: k8s                   # tag value is the resource's namespace
+      color: "#2563EB"
+    notifications: []             # notification names as shown in Uptime Kuma
+    useDefaultNotifications: true # also attach notifications marked "Default enabled"
+    monitor:
+      interval: 60
+      retryInterval: 60
+      maxretries: 2
+      timeout: 48
+      resendInterval: 0
+      acceptedStatusCodes: ["200-299"]
+      ignoreTls: false
+      expiryNotification: true    # warn before the TLS certificate expires
+      maxRedirects: 10
+      extra: {}                   # raw Uptime Kuma monitor fields, e.g. {method: HEAD}
+
+  # Prometheus Operator Probe objects, checked through a blackbox exporter
+  blackboxProbe:
+    enabled: false
+    namespace: ""                 # where Probes are created; default the release namespace
+    proberUrl: ""                 # e.g. prometheus-blackbox-exporter.monitoring.svc:9115
+    proberScheme: http
+    proberPath: /probe
+    module: http_2xx
+    interval: 60s
+    scrapeTimeout: ""
+    jobName: auto-monitor-k8s
+    labels: {}                    # e.g. {release: prometheus} to match the probeSelector
+    prune: true
+
+# Use a pre-existing Secret containing a complete config.yaml (key: config.yaml)
+# instead of rendering one from the values above.
+existingSecret: ""
+
+# Extra environment for ${VAR} references in the config
+extraEnv: []
+#  - name: UPTIME_KUMA_PASSWORD
+#    valueFrom:
+#      secretKeyRef: {name: auto-monitor-k8s-env, key: UPTIME_KUMA_PASSWORD}
+extraEnvFrom: []
+#  - secretRef:
+#      name: auto-monitor-k8s-env
+
+# --- Pod settings ------------------------------------------------------------
+# Always a single replica: two would race each other creating monitors.
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+rbac:
+  create: true
+
+podAnnotations: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: [ALL]
+
+resources:
+  requests:
+    cpu: 10m
+    memory: 96Mi
+  limits:
+    memory: 256Mi
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

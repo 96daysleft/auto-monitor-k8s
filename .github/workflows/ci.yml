@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # Includes the Helm render -> app config round-trip tests; they need the
+  # helm binary, which ubuntu-latest runners ship with (skipped otherwise).
+  test:
+    uses: 96daysleft/github-workflows/.github/workflows/python-pr-check.yml@release
+    # python-pr-check requests these for its optional PR agent step; the
+    # calling job must grant them or the run fails to start.
+    permissions:
+      contents: write
+      id-token: write
+      issues: write
+      pull-requests: write
+
+  package:
+    uses: 96daysleft/github-workflows/.github/workflows/python-package-check.yml@release
+
+  helm:
+    uses: 96daysleft/github-workflows/.github/workflows/helm-lint.yml@release
+    with:
+      chart-path: helm/auto-monitor-k8s
+      values-files: examples/values-talos.yaml
+
+  docker:
+    uses: 96daysleft/github-workflows/.github/workflows/docker-build.yml@release

@@ -1,0 +1,40 @@
+# Example values for the home lab Talos cluster (Traefik + Uptime Kuma 2.x).
+# Copy to k8s-server/auto-monitor-k8s/values.yaml and deploy with
+# examples/argocd-application.yaml.
+
+ownerId: talos
+
+# Start with dryRun: true, check the logs, then flip it off
+dryRun: false
+
+discovery:
+  mode: optOut
+  excludeNamespaces:
+    - kube-system
+  # Only public names; anything else stays out of Uptime Kuma
+  includeHosts:
+    - '.*\.localfloof\.com'
+  sources:
+    ingress: true
+    traefikIngressRoute: true
+
+backends:
+  uptimeKuma:
+    enabled: true
+    url: http://uptime-kuma-uptime-kuma.uptime-kuma.svc.cluster.local
+    username: ${UPTIME_KUMA_USERNAME}
+    password: ${UPTIME_KUMA_PASSWORD}
+    notifications: []
+    #  - Discord
+
+  blackboxProbe:
+    enabled: false
+    namespace: monitoring
+    proberUrl: prometheus-blackbox-exporter.monitoring.svc:9115
+    labels:
+      release: prometheus
+
+# From the ExternalSecret in examples/external-secret.yaml
+extraEnvFrom:
+  - secretRef:
+      name: auto-monitor-k8s-env

@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auto-monitor-k8s"
+dynamic = ["version"]
+description = "Watches Kubernetes Ingresses/HTTPRoutes and keeps Uptime Kuma (and other monitoring) in sync with their external URLs"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "96 Days left" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "kubernetes>=31.0.0",
+    "pydantic>=2.5.0",
+    "python-socketio[client]>=5.11.0",
+    "PyYAML>=6.0",
+    "structlog>=23.2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+auto-monitor-k8s = "auto_monitor.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["auto_monitor*"]
+
+[tool.setuptools_scm]
+# Docker builds have no .git: pass SETUPTOOLS_SCM_PRETEND_VERSION instead
+fallback_version = "0.0.0"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
