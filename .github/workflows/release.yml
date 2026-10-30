@@ -21,6 +21,7 @@ jobs:
       packages: write      # push to ghcr.io
       attestations: write  # build provenance attestations
       id-token: write      # OIDC token for attestation signing
+      artifact-metadata: write
     with:
       build-args: |
         VERSION=${{ github.ref_name }}
