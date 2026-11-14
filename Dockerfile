@@ -1,4 +1,4 @@
-FROM python:3.14-slim
+FROM python:3.15-slim
 
 # setuptools-scm can't see .git inside the build: the release workflow
 # passes the tag version here.
